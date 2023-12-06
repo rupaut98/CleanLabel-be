@@ -11,7 +11,7 @@ router.post('/check-ingredient', async (req, res) => {
 
   try {
     for (const ingredient of ingredients) {
-      const result = await pool.query('SELECT * FROM unhealthy_ingredients WHERE name = $1', [ingredient]);
+      const result = await pool.query('SELECT name, description, country_banned, severity FROM unhealthy_ingredients WHERE name = $1', [ingredient]);
       if (result.rows.length > 0) {
         foundIngredients.push(...result.rows);
       }
