@@ -1,33 +1,62 @@
 const { Pool } = require('pg');
-const pool = new Pool(); // Your database configuration from database.js
+const pool = new Pool(); 
 
-const createUser = async (email, hashedPassword) => {
+const createUser = async (userData) => {
+  const { email, hashedPassword, username, sign_up_date, last_login, consent, full_name, date_of_birth, profile_picture_url, location } = userData;
+
+  try {
+    // Start transaction
+    await pool.query('BEGIN');
+
+    // Insert into users table
+    const userResult = await pool.query(
+      'INSERT INTO users (email, password, username, sign_up_date, last_login) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [email, hashedPassword, username, sign_up_date, last_login]
+    );
+    
+    const userId = userResult.rows[0].id;
+
+    // Insert into user_details table
+    await pool.query(
+      'INSERT INTO user_details (id, consent, full_name, date_of_birth, profile_picture_url) VALUES ($1, $2, $3, $4, $5)',
+      [userId, consent, full_name, date_of_birth, profile_picture_url]
+    );
+
+    // Insert into user_locations table
+    await pool.query(
+      'INSERT INTO user_locations (id, location) VALUES ($1, $2)',
+      [userId, location]
+    );
+
+    // Commit transaction
+    await pool.query('COMMIT');
+
+    return { id: userId, email, username, sign_up_date, last_login };
+  } catch (error) {
+    // Rollback transaction if any error occurs
+    await pool.query('ROLLBACK');
+    throw error;
+  }
+};
+
+
+const findUserByLogin = async (login) => {
   const result = await pool.query(
-    'INSERT INTO users (email, password) VALUES ($1, $2) RETURNING *',
-    [email, hashedPassword]
+    'SELECT * FROM users WHERE email = $1 OR username = $1', 
+    [login]
   );
-  return result.rows[0];
+  return result.rows[0]; 
 };
 
-const findUserByEmail = async (email) => {
-  const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-  return result.rows[0]; // Return the first user matching the email or undefined
-};
-
-const findUserById = async (id) => {
-  const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-  return result.rows[0]; // Return the user matching the ID or undefined
-};
 
 const deleteUserByEmail = async (email) => {
   const result = await pool.query('DELETE FROM users WHERE email = $1 RETURNING *', [email]);
-  return result.rowCount; // Return the number of rows affected (should be 1 if a user was deleted)
+  return result.rowCount; 
 };
 
 
 module.exports = {
   createUser, 
-  findUserByEmail,
+  findUserByLogin,
   deleteUserByEmail,
-  findUserById,
 };
